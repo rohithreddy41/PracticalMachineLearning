@@ -1,0 +1,108 @@
+# Excercise Style Prediction Model.
+========================================================
+## Summary :
+In this project we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, and predict the manner in which they did the excercise.
+## Data Clean Up:
+  1. Excluded few columns using nearZeroVAR.
+  2. Excluded columns with NA's.
+ Below are the predictors i am left out with after cleaning.
+
+ ```{r ,echo=FALSE}
+readings <- read.csv("/Users/hadoop/Desktop/CourseEraR/Practical\ Machine\ Learning/pml-training.csv")
+#eliminated 67 columns
+readingsNoNA <- readings[, !apply(is.na(readings),2,any)]
+library(caret)
+library(MASS)
+nz <- nearZeroVar(readingsNoNA, saveMetrics=TRUE)
+# eliminates 34 more columns
+readingsWithOutNearZeroVariance <- readingsNoNA[,which(!nz$nzv)]
+features <- readingsWithOutNearZeroVariance[,6:59]
+``` 
+
+```{r}
+names(features)
+```
+
+## Cross Validation:
+
+For cross validation i sliced the training data into two halfs . To pick a model, i trained LDA and QDA with head readings and made a prediction on tail readings, compared those predictions with actual values in tail readings.
+
+```{r}
+headReadings <- head(features,n=9811)
+tailReadings <- tail(features, n=9811)
+classe.tail= tailReadings$classe
+``` 
+
+## Examining & picking the right model :
+
+# Linear Discriminant Analysis
+
+```{r}
+lda.fit=lda(classe~. , data=headReadings)
+lda.pred=predict(lda.fit, tailReadings)
+lda.class=lda.pred$class
+table(lda.class, classe.tail)
+```
+Percentage of correct predictions through LDA:
+
+```{r}
+mean(lda.class==classe.tail)
+```
+# Quadratic Discriminant Analysis :
+
+```{r}
+qda.fit=qda(classe~. , data=features)
+qda.class=predict(qda.fit, tailReadings)$class
+table(qda.class , classe.tail)
+```
+
+Percentage of correct predictions through QDA:
+
+```{r}
+mean(qda.class==classe.tail)
+```
+
+
+
+## Out of Sample Error rate:
+
+I used sample function to sample the actual training data set randomly into a testSubset with 500 observations and trainingSubset with remaining observations. Built a model using training subset and , using this model made a prediction on testSubset and compared with actual results.
+Repeated this process 100 times and took the average of error rates.
+
+```{r}
+errors <- c()
+for(i in 1:100){
+        x <- sample(19622, 500)
+        testSubset <- features[x,]
+        classe.tail= testSubset$classe
+        trainSubset <- features[-x,]
+        fit=qda(classe~. , data=features)
+        qdaclass=predict(fit, testSubset)$class
+        errors <- c(errors,mean(qdaclass != classe.tail))
+}
+errors
+#The out of sample error rate is :
+mean(errors)
+```
+
+
+
+
+## Using Quadratic Discriminant Analysis(as it gave 90% accuracy) for making predictions on test data set :
+
+
+```{r}
+testReadings <- read.csv("/Users/hadoop/Desktop/CourseEraR/Practical\ Machine\ Learning/pml-testing.csv")
+qda.pred = predict(qda.fit, testReadings)
+```
+
+Below are predictions made by QDA for the given test set :
+
+```{r}
+qda.pred$class
+```
+
+
+
+
+
